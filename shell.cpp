@@ -13,15 +13,13 @@
 
 extern char **environ;
 
-// ---------- Histórico ----------
+//  Histórico 
 const size_t HISTORY_MAX = 10;
 std::deque<std::string> g_history;
 
-// process_command precisa ser conhecida antes de builtin_history
-// (que reexecuta comandos do histórico chamando process_command de novo)
+
 void process_command(const std::string &line);
 
-// ---------- Tokenização ----------
 std::vector<std::string> tokenize(const std::string &line) {
     std::vector<std::string> tokens;
     std::istringstream iss(line);
@@ -32,7 +30,7 @@ std::vector<std::string> tokenize(const std::string &line) {
     return tokens;
 }
 
-// ---------- Busca do executável ----------
+// Busca do executável 
 std::string find_executable(const std::string &cmd) {
     if (cmd.find('/') != std::string::npos) {
         if (access(cmd.c_str(), F_OK) == 0) {
@@ -61,7 +59,7 @@ std::string find_executable(const std::string &cmd) {
     return "";
 }
 
-// ---------- Comandos internos ----------
+// Comandos internos 
 
 void builtin_pwd() {
     char buf[PATH_MAX];
@@ -74,7 +72,7 @@ void builtin_pwd() {
 
 void builtin_cd(const std::vector<std::string> &tokens) {
     if (tokens.size() < 2) {
-        // "cd" sem argumento -> convenção comum: ir pro HOME
+
         const char *home = getenv("HOME");
         if (home == nullptr) {
             std::cout << "cd: HOME não definido" << std::endl;
@@ -100,11 +98,7 @@ void builtin_exit(const std::vector<std::string> &tokens) {
     exit(code);
 }
 
-// ---------- Gerenciamento de variáveis de ambiente ----------
-// Sintaxe: export NOME=VALOR
-// Isso permite ao usuário alterar PATH, HOME, PS1, etc. dentro da própria
-// shell. Como find_executable() e o cd/prompt sempre leem via getenv() no
-// momento do uso, a mudança tem efeito imediato nos próximos comandos.
+
 void builtin_export(const std::vector<std::string> &tokens) {
     if (tokens.size() < 2) {
         std::cout << "export: uso: export NOME=VALOR" << std::endl;
@@ -131,7 +125,7 @@ void builtin_export(const std::vector<std::string> &tokens) {
     }
 }
 
-// Sintaxe: unset NOME
+
 void builtin_unset(const std::vector<std::string> &tokens) {
     if (tokens.size() < 2) {
         std::cout << "unset: uso: unset NOME" << std::endl;
@@ -141,15 +135,13 @@ void builtin_unset(const std::vector<std::string> &tokens) {
 }
 
 void builtin_history(const std::vector<std::string> &tokens) {
-    // "history -c" -> limpa todo o histórico
+
     if (tokens.size() >= 2 && tokens[1] == "-c") {
         g_history.clear();
         return;
     }
 
-    // "history N" -> reexecuta o comando de offset N (0 = mais recente)
     if (tokens.size() >= 2) {
-        // Valida se é um número antes de converter
         for (char c : tokens[1]) {
             if (!isdigit(static_cast<unsigned char>(c))) {
                 std::cout << "history: offset inválido: " << tokens[1] << std::endl;
@@ -164,16 +156,14 @@ void builtin_history(const std::vector<std::string> &tokens) {
             return;
         }
 
-        // offset 0 = mais recente = último elemento do deque (back)
+       
         int index = size - 1 - offset;
         std::string cmd_to_run = g_history[index];
-        std::cout << cmd_to_run << std::endl; // ecoa o comando antes de rodar, como o bash faz
+        std::cout << cmd_to_run << std::endl; 
         process_command(cmd_to_run);
         return;
     }
 
-    // "history" sem argumentos -> lista do mais antigo (maior offset, topo)
-    // ao mais recente (offset 0, embaixo)
     int size = static_cast<int>(g_history.size());
     for (int index = 0; index < size; ++index) {
         int label = size - 1 - index;
@@ -181,7 +171,7 @@ void builtin_history(const std::vector<std::string> &tokens) {
     }
 }
 
-// ---------- Execução de comando externo ----------
+// comando externo 
 void run_external(const std::vector<std::string> &tokens) {
     const std::string &command = tokens[0];
     std::string exec_path = find_executable(command);
@@ -217,7 +207,6 @@ void run_external(const std::vector<std::string> &tokens) {
     }
 }
 
-// ---------- Dispatcher ----------
 void process_command(const std::string &line) {
     std::vector<std::string> tokens = tokenize(line);
 
@@ -227,10 +216,10 @@ void process_command(const std::string &line) {
 
     const std::string &command = tokens[0];
 
-    // Comandos internos
+   
     if (command == "exit") {
         builtin_exit(tokens);
-        return; // nunca chega aqui de fato, mas por clareza
+        return; 
     }
     if (command == "pwd") {
         builtin_pwd();
@@ -253,11 +242,10 @@ void process_command(const std::string &line) {
         return;
     }
 
-    // Comando externo
+   
     run_external(tokens);
 }
 
-// Remove espaços em branco do início e do fim da string.
 std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t");
     if (start == std::string::npos) return "";
@@ -265,9 +253,7 @@ std::string trim(const std::string &s) {
     return s.substr(start, end - start + 1);
 }
 
-// Retorna o prompt a ser exibido: usa a variável de ambiente PS1 se
-// estiver definida (permitindo customização), ou apenas "$" por padrão,
-// conforme exigido no enunciado ("sem espaços ou qualquer outro caractere").
+
 std::string get_prompt() {
     const char *ps1 = getenv("PS1");
     if (ps1 != nullptr && ps1[0] != '\0') {
@@ -287,17 +273,12 @@ int main() {
 
         std::string line = trim(raw_line);
 
-        // Verifica se é uma chamada a "history" ANTES de executar, para saber
-        // se devemos ou não registrá-la no próprio histórico depois.
         std::vector<std::string> preview_tokens = tokenize(line);
         bool is_history_call = !preview_tokens.empty() && preview_tokens[0] == "history";
 
-        // Executa usando o histórico como estava ANTES deste comando.
         process_command(line);
 
-        // "history" (listar, -c ou reexecutar por offset) nunca entra no
-        // próprio histórico — senão cada chamada mudaria os offsets da
-        // próxima chamada, tornando a numeração instável.
+
         if (!line.empty() && !is_history_call) {
             g_history.push_back(line);
             if (g_history.size() > HISTORY_MAX) {
